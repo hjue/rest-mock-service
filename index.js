@@ -1,6 +1,51 @@
-var express = require('express');
-var app = express();
-var cheerio = require('cheerio');
+/*
+http://localhost:3000/articles/1
+http://localhost:3000/articles/15
+http://localhost:3000/article/?url=http://www.infoq.com/cn/news/2015/08/as2015-bj-start
+*/
+
+var express = require('express')
+  , app = express()
+  , cheerio = require('cheerio')
+  , PageParser = require('pageparser.js')
+  , request = require('request');
+
+app.get('/article/', function (req, res) {
+  var url = req.query.url;
+  var options =  {
+    'block':'#content',
+    'url':url,
+    'pattern':{
+      title:'h1',
+      html:/<div class="text_info">([\s\S]+?)<div/mi,
+      author:'.author_general a',
+      date:/发布于.*\s+(.*)/im
+    }
+  };
+  var parser = new PageParser(options);
+
+  var req_proxy = request(url);
+  req_proxy.on('response', function (res_proxy) {
+    var stream = this;
+    if (res_proxy.statusCode != 200) return this.emit('error', new Error('Bad status code'));
+
+    stream.pipe(parser)
+    .on('error',function(err) {
+      console.log(err)
+    })
+    .on('data',function(items) {
+      var ret = {};
+      var item = {};
+      if(items.length>0)
+      {
+        item = items[0];
+      }
+      ret['data'] = item;
+      res.json(ret);
+    });
+  });
+
+});
 
 app.get('/articles/:offset', function (req, res) {
   var offset = parseInt(req.params.offset);
@@ -8,12 +53,37 @@ app.get('/articles/:offset', function (req, res) {
     offset = 0;
   }
 
-  getNewsItem('http://www.infoq.com/cn/feed?token=n4TCh3U2mvWsuE9K549dOzEGK5vRwvnz',function (items) {
-    var ret = {};
-    ret['count'] = items.length;
-    ret['data'] = items.slice(offset, offset+5);
-    res.json(ret);
+  var url = 'http://www.infoq.com/cn/development/news/';
+  var options =  {
+    'block':'.news_type_block',
+    'url':url,
+    'pattern':{
+      title:'a',
+      link:'a',
+      description:'p',
+      author:'.author a',
+      date:/发布于.*\s+(.*)/im
+    }
+  };
+  var parser = new PageParser(options);
+
+  var req_proxy = request(url);
+  req_proxy.on('response', function (res_proxy) {
+    var stream = this;
+    if (res_proxy.statusCode != 200) return this.emit('error', new Error('Bad status code'));
+
+    stream.pipe(parser)
+    .on('error',function(err) {
+      console.log(err)
+    })
+    .on('data',function(items) {
+      var ret = {};
+      ret['count'] = items.length;
+      ret['data'] = items; //.slice(offset, offset+5);
+      res.json(ret);
+    });
   });
+
 });
 
 var server = app.listen(3000, function () {
@@ -22,64 +92,3 @@ var server = app.listen(3000, function () {
 
   console.log('Example app listening at http://%s:%s', host, port);
 });
-
-
-var getNewsItem = function (url,callback) {
-  var items = [];
-  var FeedParser = require('feedparser')
-  , request = require('request');
-
-  var req = request(url)
-    , feedparser = new FeedParser();
-
-  req.on('error', function (error) {
-    // handle any request errors
-  });
-  req.on('response', function (res) {
-    var stream = this;
-
-    if (res.statusCode != 200) return this.emit('error', new Error('Bad status code'));
-
-    stream.pipe(feedparser);
-  });
-
-
-  feedparser.on('error', function(error) {
-    // always handle errors
-  });
-  feedparser.on('end', function(err){
-    if(callback){
-      callback(items)
-    }
-
-  });
-  feedparser.on('readable', function() {
-
-    var stream = this
-      , meta = this.meta
-      , item;
-
-
-    while (item = stream.read()) {
-      items.push(transToPost(item))
-    }
-
-
-  });
-
-  function transToPost(post){
-    $ = cheerio.load(post.description);
-    var imageUrl = $('img').first().attr("src");
-    var mPost = {
-        title : post.title,
-        link : post.link,
-        description : post.description,
-        image: imageUrl,
-        pubDate : post.pubDate,
-        author : post.author
-    };
-    return mPost;
-    }
-
-}
-
