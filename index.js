@@ -53,7 +53,7 @@ app.get('/articles/:offset', function (req, res) {
     offset = 0;
   }
 
-  var url = 'http://www.infoq.com/cn/development/news/';
+  var url = 'http://www.infoq.com/cn/development/news/'+offset;
   var options =  {
     'block':'.news_type_block',
     'url':url,
