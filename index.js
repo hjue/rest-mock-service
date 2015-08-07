@@ -7,7 +7,7 @@ http://localhost:3000/article/?url=http://www.infoq.com/cn/news/2015/08/as2015-b
 var express = require('express')
   , app = express()
   , cheerio = require('cheerio')
-  , PageParser = require('pageparser.js')
+  , PageParser = require('./pageparser.js')
   , request = require('request');
 
 app.get('/article/', function (req, res) {
