@@ -8,7 +8,8 @@ var express = require('express')
   , app = express()
   , cheerio = require('cheerio')
   , PageParser = require('./pageparser.js')
-  , request = require('request');
+  , request = require('request')
+  , moment = require('moment');
 
 app.get('/article/', function (req, res) {
   var url = req.query.url;
@@ -39,6 +40,8 @@ app.get('/article/', function (req, res) {
       if(items.length>0)
       {
         item = items[0];
+
+        item['date'] = moment(item['date'],"YYYY年MM月DD日").unix();
       }
       ret['data'] = item;
       res.json(ret);
@@ -79,6 +82,10 @@ app.get('/articles/:offset', function (req, res) {
     .on('data',function(items) {
       var ret = {};
       ret['count'] = items.length;
+      for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        item['date'] = moment(item['date'],"MM月DD日").unix();
+      };
       ret['data'] = items; //.slice(offset, offset+5);
       res.json(ret);
     });
